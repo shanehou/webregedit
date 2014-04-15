@@ -1,0 +1,107 @@
+<!doctype HTML>
+<html lang="en">
+    <head>
+        <title>Windows Registry设计文档</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+        <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+        <link rel="stylesheet" href="/static/css/style.min.css">
+        <style>
+            #affix-nav .nav > li > a {
+                color: #428bca;
+                padding-left: 20px;
+            }
+            #affix-nav .nav > .active > a {
+                color: #2e608d;
+                font-weight: 700;
+                padding-left: 18px;
+                border-left: 2px solid #2e608d;
+            }
+            #affix-nav .nav .nav > li > a {
+                color: #428bca;
+                padding-left: 30px;
+                font-size: 0.9em;
+            }
+            #affix-nav .nav .nav > .active > a {
+                color: #2e608d;
+                font-weight: 500;
+                padding-left: 28px;
+                border-left: 2px solid #2e608d;
+                font-size: 0.9em;
+            }
+        </style>
+    </head>
+    <body data-spy="scroll" data-target="#affix-nav">
+        <header>
+            <nav class="navbar navbar-default" role="navigation">
+                <div class="container-fluid">
+                    <div class="navbar-header">
+                        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#menu">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        </button>
+                        <a class="navbar-brand" href="#">Windows Registry</a>
+                    </div>
+                    <div class="collapse navbar-collapse" id="menu">
+                        <ul class="nav navbar-nav navbar-right">
+                            <li><a href="/doc">Doc</a></li>
+                        </ul>
+                    </div><!-- /.navbar-collapse -->
+                </div><!-- /.container-fluid -->
+            </nav>
+        </header>
+        <div class="container" role="main">
+            <div class="page-header">
+                <h1>设计文档 <small>曼联是冠军</small></h1>
+            </div>
+            <div class="row">
+                <nav id="affix-nav" class="sidebar col-xs-12 col-sm-12 col-md-2 col-lg-2 hidden-print" role="complementary">
+                    <ul class="nav sidenav" data-spy="affix" data-offset-top="0">
+                        <li class="active"><a href="#chapter1">1. 题目分析</a></li>
+                        <li><a href="#chapter2">2. 技术路线</a>
+                            <ul class="nav">   
+                                <li><a href="#chapter2-1">2.1 数据储存方式</a></li>
+                                <li><a href="#chapter2-2">2.2 数据读取方式</a></li>
+                                <li><a href="#chapter2-3">2.3 GUI的选择</a></li>
+                                <li><a href="#chapter2-4">2.4 开发语言的选择</a></li>        
+                            </ul>
+                        </li>
+                    </ul>
+                </nav>
+                <article id="content" class="col-xs-12 col-sm-12 col-md-10 col-lg-10" role="main">
+                    <h2 id="chapter1">1. 题目分析</h2>
+                    <p>题目是要实现一个类似Windows注册表编辑器的管理系统。注册表编辑器中的数据分为两类，一类是key，类似于文件；另一类是value和data的键值对（其中每个value有特定的类型），每个键值对都属于某一个key，类似于key的属性。因此注册表相当于文件和文件属性的集合。</p>
+                    <p>一般的文件系统中，目录也是一种文件，只是拥有特殊类型的文件；而不同于文件系统，注册表中的“文件”就是、也只能是“目录文件”。换句话说，不区分文件和目录，所有的文件都是目录。</p>
+                    <p>抽象出来，整个注册表就是一棵树，拥有单个隐藏的根节点。每个key的位置标明了其在树中的位置。所有value和data的键值对是树中节点的附加数据。根据这样的思路即可完成题目。</p>
+                    <hr />
+                    <h2 id="chapter2">2. 技术路线</h2>
+                    <h3 id="chapter2-1">2.1 数据储存方式</h3>
+                    <p>给出的测试用例是Windows注册表导出后的文本文件。如果采用这样的文本文件保存数据，缺陷是非常明显的。保存方式基本上是这样的两种选择：第一种是每次操作都遍历整棵树并更新整个文件——实现容易，但是效率太低；第二种是记录每条数据在文本文件中的位置，每次操作都到文本文件中寻找对应的位置并做出部分修改——实现过于复杂，并且效率提高并不明显。</p>
+                    <p>给出的测试用例是Windows注册表导出后的文件。实际上Windows注册表并不是以文本文件管理的，而是操作系统内建了一个层级数据库。数据库的文件以二进制的格式存放在%WINDOWS%\SYSTEM32\CONFIG和%USER%\NTUSER.DAT中。</p>
+                    <p>因此，为了持久化注册表数据，并且以方便快速的形式读写，应该采用数据库来储存。</p>
+                    <p>为了系统的稳定性、效率和实现的方便，应采用成熟的数据库。虽然注册表是层级结构，但是即使在可以储存层级结构的非关系型数据库中，一般对数据层级数目是有限制的，并且储存过深的层级数据会显著降低效率，因此考虑所有key平级储存的单层结构，每个key储存一个“路径”数据，标明其位置。key的value-data键值对属性附加至key上储存。这里参考了MongoDB官方手册中介绍的储存方式：http://docs.mongodb.org/manual/tutorial/model-tree-structures-with-materialized-paths/。</p>
+                    <p>这样做的优势有：1.储存方便快速，可扩展性强，即使注册表文件非常大，也只需要读取一次，储存起来也毫无压力；2.读取key的属性时无需遍历树结构，根据路径即可直接匹配到；3.由于所有key在同一层级，在任意位置添加新的key、或是增加、修改、删除某个key的属性非常直接方便快速。缺点是修改某个key的名字需要遍历其所有子节点并全部修改，因此在修改上层key的名字时可能速度较慢。</p>
+                    <p>不过分析实际的场景可以发现，“修改上层key名”的操作是非常罕见的，而添加key（安装软件）和添加、修改、删除某个key属性（配置软件）的操作特别频繁，因此在这样的使用场景下，应该采用这样的单层数据结构的储存方式。</p>
+                    <p>这样的数据库多种多样，总体来说分为关系型数据库和非关系型数据库。如果使用关系型数据库，需要建立至少两张表：一张表用于储存所有的key信息，包括名字和路径；另一张表用于储存所有的属性，并通过key的ID与之关联。使用非关系型数据库则是将每个key存为一个文档，key的路径和属性作为文档的属性和文档绑定储存。</p>
+                    <p>使用非关系型数据库更为直接地将value、data键值对与key绑定在一起，并且导出的时候无需像关系型数据库那样使用大量速度很慢的联合查询，因此我们最终决定采用非关系型数据库。实际实现中我们采用了目前行业内最为成熟的非关系型数据库MongoDB作为数据储存方式。</p>
+                    <h3 id="chapter2-2">2.2 数据读取方式</h3>
+                    <p>如果在内存中建立整棵注册表的树结构，好处是建立后就可以很快地读到每个节点和其属性。然而注册表导出后一般都超过了100MB，虽然目前计算机的内存单位是GB，但是一方面树结构本身也要占用附加的空间；另一方面、也是更重要的是，管理数据库的时候长期在内存中维护一棵超过100MB的数据结构、并且很少会操作所有的节点，这显然是一个低效的方法。而且这样的选择在每次打开该系统的时候都需要重新建立树，初始化速度过慢。</p>
+                    <p>因此应该采取部分读入的方式，先读入最高层的key，用户在需要打开下级key的时候再去读取相应的key。</p>
+                    <h3 id="chapter2-3">2.3 GUI的选择</h3>
+                    <p>目前常用的GUI库有MFC、GTK、wxWidgets和Qt。MFC相对比较古老，多语言支持能力一般，不能跨平台，并且由于我们的电脑上没有Windows操作系统，也没有足够的钱购买VS，因此忽略；GTK由于纯C语言复杂的实现和跨平台特性问题也不予采用；wxWidgets和MFC颇为相像，而且在对象封装和功能上比MFC强很多，只是在多语言支持上稍有问题；Qt在各方面都非常强大，跨平台能力和多语言支持几乎完美，并且文档和库也非常多，只是其信号/槽机制需要通过自身的预编译器处理，编译的时候需要使用Qt提供的qmake而不能单独使用C++的编译器。</p>
+                    <p>除了要本地操作以外，题目还要求能够实现远程管理。如果使用上述的GUI库，虽然网络通信在各个GUI库中都已有成熟的方案，但这势必还是会增加不少的工作量。</p>
+                    <p>于是，考虑到远程管理的问题，再考虑到各个GUI库的优缺点，我们换了一种思路，可以满足完全的跨平台和多语言支持能力、丰富的库和资源、方便简单的开发方式、以及原生的远程管理能力——我们决定采用浏览器-服务器的模型来完成。也就是搭建一个服务器，将整个管理系统建立在Web页面上。前端的图形操作开发采用浏览器可以直接解释的HTML、CSS和JavaScript来完成，相应的库和资源非常多，这里我们采用了Twitter推出的Bootstrap作为基本的界面框架，采用jsTree作为树形结构的显示库。这样运行之后既可以在本地通过浏览器访问本地地址来管理，也可以在网络上通过对应的IP（或者域名）来访问。</p>
+                    <h3 id="chapter2-4">2.4 开发语言的选择</h3>
+                    <p>开发的过程分为了浏览器（前端）和服务器（后端）。由于浏览器能解析的语言只有JavaScript，因此我们直接采用JavaScript，配合jQuery库进行前端开发。</p>
+                    <p>后端语言的选择多种多样，但是由于最终要提交可执行文件，如果使用Apache或者Nginx作为服务器，使用脚本语言开发，最后很难提交。用后台语言自身搭建服务器，并且可以生成可执行文件，最终我们选择了Go语言作为后台开发语言。Go语言是静态强类型语言，方便生成可执行文件，跨平台能力强；Go拥有开发良好的MongoDB库，其自身搭建的服务器性能也很好，可以支持大量并发访问；Go在语言层对多线程的支持非常好，在本题目的一些耗时的操作上（如修改key的名字）可以采用多线程，可以大大提高效率。</p>
+                    <hr />
+                </article>
+            </div>
+        </div>
+        <footer></footer>
+        <script src="/static/js/jquery-1.11.0.min.js"></script>
+        <script src="/static/js/bootstrap.min.js"></script>
+    </body>
+</html>
