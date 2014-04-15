@@ -191,8 +191,10 @@ $(function () {
                 if (data.err) {
                     $('#errorModal p').text(data.err);
                     errorModal.modal('show');
+                } else {
+                    registry[data.id] = {}
+                    params.instance.set_id(params.node, data.id);
                 }
-                params.instance.set_id(params.node, data.id);
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 if (textStatus) {
@@ -230,6 +232,8 @@ $(function () {
                 if (data.err) {
                     $('#errorModal p').text(data.err);
                     errorModal.modal('show');
+                } else {
+                    delete registry[params.node.id];
                 }
             },
             error: function(jqXHR, textStatus, errorThrown) {

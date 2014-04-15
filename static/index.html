@@ -3,9 +3,33 @@
     <head>
         <title>Windows Registry</title>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"><!--[if lt IE 9]>
+            <script src="/static/js/html5shiv-printshiv.min.js"></script>
+        <![endif]-->
+        <!--[if lte IE 8]>
+            <script src="/static/js/json3.min.js"></script>
+        <![endif]-->
         <link rel="stylesheet" href="/static/css/bootstrap.min.css">
         <link rel="stylesheet" href="/static/css/style.min.css">
+        <style>
+            .container {
+                min-height: 500px;
+            }
+            /* Site Generator Line */
+            #site-generator {
+                background: #f9f9f9;
+                border-top: 1px solid #ddd;
+                color: #666;
+                font-size: 12px;
+                line-height: 2.2em;
+                padding: 2.2em 0.5em;
+                text-align: center;
+            }
+            #site-generator a {
+                color: #555;
+                font-weight: bold;
+            }
+        </style>
     </head>
     <body>
         <header>
@@ -60,7 +84,9 @@
                 </div>
             </div>
         </div>
-        <footer></footer>
+        <footer id="colophon" role="contentinfo">
+            <div id="site-generator">Windows Registry - 曼联是冠军 Copyright © 2014 All rights reserved.</div>
+        </footer>
         <div id="importModal" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true" aria-labelledby="importModalLabel">
             <div class="modal-dialog">
                 <div class="modal-content">

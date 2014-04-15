@@ -94,6 +94,8 @@ func writeValueData(c *mgo.Collection, nodeId bson.ObjectId, value string, value
 		err = errors.New("Unidentified type: " + valueData)
 		return err
 	}
+	fmt.Println("type: " + valueType)
+	fmt.Println(value + "=" + valueData)
 	err = c.Update(bson.M{"_id": nodeId}, bson.M{"$set": bson.M{"attr." + value: bson.M{"data": valueData, "type": valueType}}})
 	return err
 }
@@ -142,7 +144,9 @@ func processRegistry(c *mgo.Collection, r io.Reader) {
 				}
 				nodeId = existedNode.Id
 			}
-			fmt.Println(path)
+			fmt.Println()
+			fmt.Println("id: " + nodeId)
+			fmt.Println("path: " + path)
 		} else {
 			re := regexp.MustCompile(`[^\\](\\\\)*"=`) // Some value names also contain `=`, or have `\"=` as end, or have `=` as start, so it's wrong to simply split current line with `=` or find `"="`.
 			if strings.HasPrefix(currentLine, "@") {   // default value name
@@ -169,8 +173,6 @@ func processRegistry(c *mgo.Collection, r io.Reader) {
 				currentLine = strings.TrimLeft(currentLine, ` `)
 				valueData += currentLine
 			}
-			fmt.Println("Id: " + nodeId)
-			fmt.Println("Value: " + value)
 		}
 	}
 }
@@ -178,10 +180,10 @@ func processRegistry(c *mgo.Collection, r io.Reader) {
 func (h *importHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	invalid := errors.New("")
 	fname := string(r.PostFormValue("registry"))
-	fmt.Println(fname)
 	if _, err := os.Stat(fname); os.IsNotExist(err) {
 		invalid = errors.New("File does not exists!")
 	} else {
+		fmt.Println("Importing file: " + fname)
 		f, err := os.Open(fname)
 		if err != nil {
 			panic(err)
@@ -247,8 +249,6 @@ func (h *outputHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println(value)
-			fmt.Println(valueContent["data"])
 		}
 	}
 	err = iter.Err()
@@ -330,12 +330,15 @@ func (h *nodeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	text = strings.Replace(text, `\`, "", -1)
 	operation := r.URL.Path[len("/node/"):]
 	invalid := errors.New("")
+	fmt.Println()
+	fmt.Println("Node operation: " + operation)
+	fmt.Println("ObjectId: " + objectId)
 	switch operation {
 	case "create":
 		newPath := node.Path + text + `\`
 		objectId = bson.NewObjectId()
 		newNode := NodeEntry{Id: objectId, Path: newPath, Text: text, Attr: bson.M{}, Chil: false}
-		fmt.Println(newNode.Path)
+		fmt.Println("New node: " + newNode.Path)
 		err = c.Insert(newNode)
 		if err != nil {
 			panic(err)
@@ -347,6 +350,8 @@ func (h *nodeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "rename":
 		textPos := strings.LastIndex(node.Path, node.Text)
 		newPath := node.Path[:textPos] + text + `\`
+		fmt.Println("Original node: " + node.Path)
+		fmt.Println("New node: " + newPath)
 		err = c.UpdateId(objectId, bson.M{"$set": bson.M{"text": text, "path": newPath}})
 		if err != nil {
 			panic(err)
@@ -365,6 +370,7 @@ func (h *nodeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 	case "delete":
+		fmt.Println("Remove node: " + node.Path)
 		_, err = c.RemoveAll(bson.M{"path": bson.M{"$regex": "^" + strings.Replace(node.Path, `\`, `\\`, -1)}})
 		if err != nil {
 			panic(err)
@@ -372,7 +378,6 @@ func (h *nodeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		invalid = errors.New("Invalid operation!")
 	}
-	fmt.Println("ObjectId: " + objectId)
 	response, err := json.Marshal(bson.M{"err": invalid.Error(), "id": objectId})
 	if err != nil {
 		panic(err)
@@ -386,22 +391,20 @@ func (h *attrHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var node NodeEntry
 	objectId := bson.ObjectIdHex(r.PostFormValue("objectId"))
-	fmt.Println(objectId)
 	err = c.FindId(objectId).One(&node)
 	if err != nil {
 		panic(err)
 	}
 	operation := r.URL.Path[len("/attr/"):]
-	fmt.Println(operation)
+	fmt.Println()
+	fmt.Println("Attribute operation: " + operation)
+	fmt.Println("objectId: " + objectId)
 	invalid := errors.New("")
 	switch operation {
 	case "add":
 		value := r.PostFormValue("value")
 		valueType := r.PostFormValue("valueType")
 		valueData := r.PostFormValue("valueData")
-		fmt.Println("value: " + value)
-		fmt.Println("valueType: " + valueType)
-		fmt.Println("valueData: " + valueData)
 		exist, err := c.Find(bson.M{"_id": objectId, "attr." + `"` + value + `"`: bson.M{"$exists": true}}).Count()
 		if err != nil {
 			panic(err)
@@ -409,6 +412,9 @@ func (h *attrHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if exist > 0 {
 			invalid = errors.New("value already exists!")
 		} else {
+			fmt.Println("New value: " + value)
+			fmt.Println("New value type: " + valueType)
+			fmt.Println("New value data: " + valueData)
 			err = c.UpdateId(objectId, bson.M{"$set": bson.M{"attr." + `"` + value + `"`: bson.M{"data": valueData, "type": valueType}}})
 		}
 		if err != nil {
@@ -418,9 +424,6 @@ func (h *attrHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		value := r.PostFormValue("value")
 		origValue := r.PostFormValue("orgiValue")
 		valueData := r.PostFormValue("valueData")
-		fmt.Println("value: " + value)
-		fmt.Println("origValue: " + origValue)
-		fmt.Println("valueData: " + valueData)
 		if origValue != value {
 			exist, err := c.Find(bson.M{"_id": objectId, "attr." + `"` + value + `"`: bson.M{"$exists": true}}).Count()
 			if err != nil {
@@ -430,6 +433,9 @@ func (h *attrHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if exist > 0 {
 				invalid = errors.New("value already exists!")
 			} else {
+				fmt.Println("Original value: " + origValue)
+				fmt.Println("New value: " + value)
+				fmt.Println("New value data: " + valueData)
 				err = c.UpdateId(objectId, bson.M{"$rename": bson.M{"attr." + `"` + origValue + `"`: "attr." + `"` + value + `"`}})
 				if err != nil {
 					panic(err)
@@ -446,7 +452,7 @@ func (h *attrHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	case "delete":
 		value := r.PostFormValue("value")
-		fmt.Println(value)
+		fmt.Println("Delete value: " + value)
 		err = c.UpdateId(objectId, bson.M{"$unset": bson.M{"attr." + `"` + value + `"`: ""}})
 		if err != nil {
 			panic(err)
@@ -460,7 +466,7 @@ func (h *attrHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	fmt.Println()
+	fmt.Println("Web Windows Registry Editor Logging:")
 	var err error
 	session, err := mgo.Dial("localhost")
 	if err != nil {
